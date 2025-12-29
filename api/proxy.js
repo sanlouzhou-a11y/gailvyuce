@@ -1,26 +1,26 @@
-export default async function handler(req, res) {
-  const url = `https://gamma-api.polymarket.com${req.url}`;
+// api/markets.js
+const axios = require('axios');
+
+module.exports = async (req, res) => {
+  // 允许跨域
+  res.setHeader('Access-Control-Allow-Origin', '*');
   
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
+    // 转发请求给 Polymarket Gamma API
+    const response = await axios.get('https://gamma-api.polymarket.com/markets', {
+      params: req.query,
+      timeout: 8000 // 设置 8 秒超时，防止 Vercel 强制断开
     });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(data);
+
+    res.status(200).json(response.data);
   } catch (error) {
-    res.status(502).json({ 
-      error: 'Proxy failed', 
-      details: error.message 
-    });
+    console.error('代理请求失败:', error.message);
+    
+    // 如果 Polymarket 返回了错误，我们也把错误返回给小程序
+    if (error.response) {
+      res.status(error.response.status).json({ error: 'Polymarket API 报错' });
+    } else {
+      res.status(500).json({ error: '无法连接到预测市场服务器' });
+    }
   }
-}
+};
