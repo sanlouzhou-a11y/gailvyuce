@@ -9,19 +9,17 @@ export default async function handler(req, res) {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP ${response.status}`);
     }
     
     const data = await response.json();
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');  // 可选：缓存1分钟
     res.status(200).json(data);
   } catch (error) {
-    console.error('Proxy fetch error:', error);  // 这会在 Vercel 日志里显示
     res.status(502).json({ 
-      error: 'Failed to fetch from Polymarket', 
+      error: 'Proxy failed', 
       details: error.message 
     });
   }
