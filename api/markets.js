@@ -4,33 +4,37 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
-  const { closed = 'false', limit = 100 } = req.query;
+  // 从前端获取参数：closed (是否完结), limit (数量)
+  const isClosed = req.query.closed === 'true';
+  const fetchLimit = req.query.limit || 1000; // 默认拉取 1000 条以实现“全部”感
 
   try {
-    // 构建请求参数：Polymarket 官方使用 order 和 ascending 控制排序
+    console.log(`正在拉取数据: closed=${isClosed}, limit=${fetchLimit}`);
+
     const response = await axios.get('https://gamma-api.polymarket.com/markets', {
       params: {
-        limit: limit,
-        active: closed === 'true' ? 'false' : 'true', // 进行中为 true，完结为 false
-        closed: closed, // 是否完结
-        order: 'id',    // 按 ID 排序通常能拿到最及时的更新
+        limit: fetchLimit,
+        active: isClosed ? 'false' : 'true',
+        closed: isClosed ? 'true' : 'false',
+        order: 'volume24hr', 
         ascending: 'false'
       },
-      timeout: 10000 
+      timeout: 15000 // 延长超时时间以处理大数据量
     });
 
     if (!response.data || response.data.length === 0) {
-      console.warn('后端警告：Polymarket 接口返回空数据');
+      console.warn('Polymarket 返回了空列表');
     }
 
     res.status(200).json(response.data);
   } catch (error) {
-    // 报错相关代码：将详细错误通过 JSON 返回，方便前端调试
-    console.error('Vercel 代理崩溃:', error.message);
-    res.status(500).json({ 
-      error: 'Backend Failure', 
+    // 详细报错代码：让前端知道是网络问题还是 API 变动
+    const errorInfo = {
+      error: 'Backend Fetch Error',
       message: error.message,
-      status: error.response ? error.response.status : 'No Response'
-    });
+      code: error.response ? error.response.status : 'ECONNABORTED'
+    };
+    console.error('Vercel 代理报错:', errorInfo);
+    res.status(500).json(errorInfo);
   }
 };
